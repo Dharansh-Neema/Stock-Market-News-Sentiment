@@ -9,7 +9,7 @@ const EmptyState = () => {
         </svg>
       </div>
 
-      <h3 className="text-2xl font-bold text-gray-800 mb-3">Welcome to Stock-Sense</h3>
+      <h3 className="text-2xl font-bold text-gray-800 mb-3">Welcome to Stock-Sentiment</h3>
       
       <p className="text-gray-600 mb-8 max-w-md mx-auto leading-relaxed">
         Get detailed analytics, real-time charts, and AI-powered insights for any stock. 

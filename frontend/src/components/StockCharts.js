@@ -27,12 +27,12 @@ const StockCharts = ({ graphData }) => {
   const [volumeChartData, setVolumeChartData] = useState(null);
   const [error, setError] = useState(null);
   const [dateOptions, setDateOptions] = useState([]);
-  const [selectedDate, setSelectedDate] = useState('all'); // 'all' means 5-day view
+  const [selectedDate, setSelectedDate] = useState(null); // Will be set to first day option
 
-  // Function to filter data by selected date
-  const filterDataByDate = (data, selectedDate) => {
+  // Function to filter data by selected date (for price data)
+  const filterPriceDataByDate = (data, selectedDate) => {
     if (selectedDate === 'all') {
-      return data;
+      return data; // No filtering for price data
     }
 
     const targetDate = new Date(selectedDate);
@@ -42,10 +42,37 @@ const StockCharts = ({ graphData }) => {
     });
   };
 
+  // Function to filter data by selected date (for volume data)
+  const filterVolumeDataByDate = (data, selectedDate) => {
+    if (selectedDate === 'all') {
+      // Filter out empty periods (8:00-13:47 and 20:11-23:23)
+      return data.filter(item => {
+        const time = new Date(item.time);
+        const hours = time.getHours();
+        const minutes = time.getMinutes();
+        const timeInMinutes = hours * 60 + minutes;
+        
+        // Remove data from 8:00 (480) to 13:47 (827)
+        const isMorningGap = timeInMinutes >= 480 && timeInMinutes <= 827;
+        
+        // Remove data from 20:11 (1211) to 23:23 (1403)
+        const isEveningGap = timeInMinutes >= 1211 && timeInMinutes <= 1403;
+        
+        return !(isMorningGap || isEveningGap) && item.volume > 0;
+      });
+    }
+
+    const targetDate = new Date(selectedDate);
+    return data.filter(item => {
+      const itemDate = new Date(item.time);
+      return isSameDay(itemDate, targetDate) && item.volume > 0;
+    });
+  };
+
   // Function to update charts based on selected date
   const updateCharts = (parsedData, dateFilter) => {
     // Process price data with proper date handling
-    const filteredPriceData = filterDataByDate(parsedData.price_data, dateFilter);
+    const filteredPriceData = filterPriceDataByDate(parsedData.price_data, dateFilter);
     const priceLabels = [];
     const priceValues = [];
     
@@ -76,7 +103,7 @@ const StockCharts = ({ graphData }) => {
     });
 
     // Process volume data with proper date handling
-    const filteredVolumeData = filterDataByDate(parsedData.volume_data, dateFilter);
+    const filteredVolumeData = filterVolumeDataByDate(parsedData.volume_data, dateFilter);
     const volumeLabels = [];
     const volumeValues = [];
     
@@ -153,9 +180,9 @@ const StockCharts = ({ graphData }) => {
         dayOptions.sort((a, b) => a.date - b.date);
         setDateOptions(dayOptions);
         
-        // Set the most recent date as the default selected date
-        if (dayOptions.length > 0 && selectedDate === 'all') {
-          setSelectedDate('all'); // Keep 5-day view as default
+        // Set the first date as the default selected date if none selected
+        if (dayOptions.length > 0 && selectedDate === null) {
+          setSelectedDate(dayOptions[0].value);
         }
         
         // Update charts with either all data or filtered data
@@ -169,14 +196,14 @@ const StockCharts = ({ graphData }) => {
   
   // Update charts when selected date changes
   useEffect(() => {
-    if (graphData) {
+    if (graphData && selectedDate !== null) {
       const parsedData = safelyParseJSON(graphData);
       if (parsedData && parsedData.price_data && parsedData.volume_data) {
         updateCharts(parsedData, selectedDate);
         
         // Calculate average volume for annotation
         if (volumeChartOptions.plugins?.annotation?.annotations?.line1) {
-          const filteredVolumeData = filterDataByDate(parsedData.volume_data, selectedDate);
+          const filteredVolumeData = filterVolumeDataByDate(parsedData.volume_data, selectedDate);
           const volumeValues = filteredVolumeData.map(item => item.volume);
           const avgVolume = volumeValues.reduce((sum, vol) => sum + vol, 0) / volumeValues.length || 0;
           
@@ -186,7 +213,8 @@ const StockCharts = ({ graphData }) => {
         }
       }
     }
-  }, [selectedDate]);
+  }, [selectedDate, graphData]);
+
 
   const priceChartOptions = {
     responsive: true,
@@ -346,6 +374,9 @@ const StockCharts = ({ graphData }) => {
           callback: function(value) {
             return formatLargeNumber(value);
           },
+          padding: 10, // Add padding to prevent clustering
+          autoSkip: true,
+          maxTicksLimit: 8, // Limit number of ticks to avoid clustering
         },
         // Ensure we start near zero but not at zero (which breaks log scale)
         min: 10,
@@ -384,15 +415,6 @@ const StockCharts = ({ graphData }) => {
         
         {/* Date Filter Buttons */}
         <div className="flex flex-wrap items-center space-x-2 mt-2 md:mt-0">
-          <button
-            onClick={() => setSelectedDate('all')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${selectedDate === 'all' 
-              ? 'bg-green-600 text-white' 
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-          >
-            5d
-          </button>
-          
           {dateOptions.map(date => (
             <button
               key={date.value}
@@ -404,6 +426,15 @@ const StockCharts = ({ graphData }) => {
               {date.label}
             </button>
           ))}
+          
+          <button
+            onClick={() => setSelectedDate('all')}
+            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${selectedDate === 'all' 
+              ? 'bg-green-600 text-white' 
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+          >
+            5d
+          </button>
         </div>
       </div>
       
