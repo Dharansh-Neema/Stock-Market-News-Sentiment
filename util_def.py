@@ -81,7 +81,7 @@ def get_ticker(symbol: str):
             ticker = yf.Ticker(symbol)
 
         # First attempt – the fast path
-        data = ticker.history(period="1d", interval=interval, prepost=True)
+        data = ticker.history(period="5d", interval=interval, prepost=True)
 
         # Fallback: explicit date-range via yfinance.download
         if data.empty:

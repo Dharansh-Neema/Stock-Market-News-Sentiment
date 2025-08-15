@@ -1,17 +1,119 @@
 import React, { useState, useEffect } from 'react';
-import { Line } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, TimeScale } from 'chart.js';
+import { Line, Bar } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, TimeScale, Filler, LogarithmicScale } from 'chart.js';
 import 'chart.js/auto';
-import { format } from 'date-fns';
-import { safelyParseJSON } from '../utils/dataUtils';
+import { format, parseISO, startOfDay, isSameDay } from 'date-fns';
+import { safelyParseJSON, formatLargeNumber } from '../utils/dataUtils';
+import annotationPlugin from 'chartjs-plugin-annotation';
 
 // Register ChartJS components
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, TimeScale);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  LogarithmicScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  TimeScale,
+  Filler,
+  annotationPlugin
+);
 
 const StockCharts = ({ graphData }) => {
   const [priceChartData, setPriceChartData] = useState(null);
   const [volumeChartData, setVolumeChartData] = useState(null);
   const [error, setError] = useState(null);
+  const [dateOptions, setDateOptions] = useState([]);
+  const [selectedDate, setSelectedDate] = useState('all'); // 'all' means 5-day view
+
+  // Function to filter data by selected date
+  const filterDataByDate = (data, selectedDate) => {
+    if (selectedDate === 'all') {
+      return data;
+    }
+
+    const targetDate = new Date(selectedDate);
+    return data.filter(item => {
+      const itemDate = new Date(item.time);
+      return isSameDay(itemDate, targetDate);
+    });
+  };
+
+  // Function to update charts based on selected date
+  const updateCharts = (parsedData, dateFilter) => {
+    // Process price data with proper date handling
+    const filteredPriceData = filterDataByDate(parsedData.price_data, dateFilter);
+    const priceLabels = [];
+    const priceValues = [];
+    
+    filteredPriceData.forEach(item => {
+      const date = new Date(item.time);
+      const formattedTime = format(date, 'HH:mm');
+      priceLabels.push(formattedTime);
+      priceValues.push(item.close);
+    });
+    
+    // Format price chart data
+    setPriceChartData({
+      labels: priceLabels,
+      datasets: [
+        {
+          label: 'Stock Price ($)',
+          data: priceValues,
+          borderColor: 'rgb(34, 197, 94)', // Green color
+          backgroundColor: 'rgba(34, 197, 94, 0.1)',
+          borderWidth: 2,
+          pointRadius: filteredPriceData.length < 100 ? 2 : 0, // Show points for daily view
+          pointHoverRadius: 6,
+          fill: true,
+          tension: 0.2, // Smoother line
+          spanGaps: true, // Connect gaps in data
+        },
+      ],
+    });
+
+    // Process volume data with proper date handling
+    const filteredVolumeData = filterDataByDate(parsedData.volume_data, dateFilter);
+    const volumeLabels = [];
+    const volumeValues = [];
+    
+    filteredVolumeData.forEach(item => {
+      const date = new Date(item.time);
+      const formattedTime = format(date, 'HH:mm');
+      volumeLabels.push(formattedTime);
+      volumeValues.push(item.volume);
+    });
+    
+    // Calculate average volume for highlighting significant spikes
+    const avgVolume = volumeValues.reduce((sum, vol) => sum + vol, 0) / volumeValues.length || 1;
+    const volumeThreshold = avgVolume * 2; // Threshold for significant volume
+    
+    // Format volume chart data with dynamic coloring for significant volume
+    setVolumeChartData({
+      labels: volumeLabels,
+      datasets: [
+        {
+          label: 'Volume',
+          data: volumeValues,
+          backgroundColor: volumeValues.map(vol => 
+            vol > volumeThreshold ? 'rgba(79, 70, 229, 0.9)' : 'rgba(59, 130, 246, 0.6)'
+          ), // Highlight significant volume
+          borderColor: volumeValues.map(vol => 
+            vol > volumeThreshold ? 'rgb(79, 70, 229)' : 'rgb(59, 130, 246)'
+          ),
+          borderWidth: volumeValues.map(vol => vol > volumeThreshold ? 2 : 1),
+          borderRadius: 2,
+          barThickness: filteredVolumeData.length < 100 ? 8 : 'flex',
+          maxBarThickness: filteredVolumeData.length < 100 ? 8 : 4,
+          categoryPercentage: 1.0,
+          barPercentage: 1.0,
+        },
+      ],
+    });
+  };
 
   useEffect(() => {
     if (!graphData) {
@@ -28,58 +130,70 @@ const StockCharts = ({ graphData }) => {
         return;
       }
 
-      // If we have the proper data structure from test_output.py
+      // If we have the proper data structure
       if (parsedData.price_data && parsedData.volume_data) {
-        // Format price chart data
-        const priceLabels = parsedData.price_data.map(item => format(new Date(item.time), 'HH:mm'));
-        const priceValues = parsedData.price_data.map(item => item.close);
+        // Extract unique dates from data
+        const dateSet = new Set();
+        const dayOptions = [];
         
-        setPriceChartData({
-          labels: priceLabels,
-          datasets: [
-            {
-              label: 'Stock Price ($)',
-              data: priceValues,
-              borderColor: 'rgb(59, 130, 246)',
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-              borderWidth: 2,
-              pointRadius: 1,
-              pointHoverRadius: 5,
-              fill: true,
-              tension: 0.4,
-            },
-          ],
+        parsedData.price_data.forEach(item => {
+          const date = new Date(item.time);
+          const dayKey = format(date, 'yyyy-MM-dd');
+          if (!dateSet.has(dayKey)) {
+            dateSet.add(dayKey);
+            dayOptions.push({
+              value: dayKey,
+              label: format(date, 'MMM dd'),
+              date: date
+            });
+          }
         });
-
-        // Format volume chart data
-        const volumeLabels = parsedData.volume_data.map(item => format(new Date(item.time), 'HH:mm'));
-        const volumeValues = parsedData.volume_data.map(item => item.volume);
         
-        setVolumeChartData({
-          labels: volumeLabels,
-          datasets: [
-            {
-              label: 'Volume',
-              data: volumeValues,
-              borderColor: 'rgb(99, 102, 241)',
-              backgroundColor: 'rgba(99, 102, 241, 0.4)',
-              borderWidth: 1,
-              borderRadius: 4,
-              barThickness: 8,
-              type: 'bar',
-            },
-          ],
-        });
+        // Sort dates chronologically
+        dayOptions.sort((a, b) => a.date - b.date);
+        setDateOptions(dayOptions);
+        
+        // Set the most recent date as the default selected date
+        if (dayOptions.length > 0 && selectedDate === 'all') {
+          setSelectedDate('all'); // Keep 5-day view as default
+        }
+        
+        // Update charts with either all data or filtered data
+        updateCharts(parsedData, selectedDate);
       }
     } catch (err) {
       console.error('Error parsing graph data:', err);
       setError('Failed to parse graph data');
     }
   }, [graphData]);
+  
+  // Update charts when selected date changes
+  useEffect(() => {
+    if (graphData) {
+      const parsedData = safelyParseJSON(graphData);
+      if (parsedData && parsedData.price_data && parsedData.volume_data) {
+        updateCharts(parsedData, selectedDate);
+        
+        // Calculate average volume for annotation
+        if (volumeChartOptions.plugins?.annotation?.annotations?.line1) {
+          const filteredVolumeData = filterDataByDate(parsedData.volume_data, selectedDate);
+          const volumeValues = filteredVolumeData.map(item => item.volume);
+          const avgVolume = volumeValues.reduce((sum, vol) => sum + vol, 0) / volumeValues.length || 0;
+          
+          // Update the annotation line position
+          volumeChartOptions.plugins.annotation.annotations.line1.yMin = avgVolume;
+          volumeChartOptions.plugins.annotation.annotations.line1.yMax = avgVolume;
+        }
+      }
+    }
+  }, [selectedDate]);
 
-  const chartOptions = {
+  const priceChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    animation: {
+      duration: 1000,
+    },
     interaction: {
       mode: 'index',
       intersect: false,
@@ -87,10 +201,33 @@ const StockCharts = ({ graphData }) => {
     plugins: {
       legend: {
         position: 'top',
+        labels: {
+          boxWidth: 16,
+          usePointStyle: true,
+          pointStyle: 'circle',
+          font: {
+            size: 12,
+          },
+        },
       },
       tooltip: {
         mode: 'index',
         intersect: false,
+        backgroundColor: 'rgba(17, 24, 39, 0.9)',
+        titleFont: {
+          size: 13,
+        },
+        bodyFont: {
+          size: 12,
+        },
+        padding: 10,
+        cornerRadius: 4,
+        displayColors: false,
+        callbacks: {
+          label: function(context) {
+            return `Price: $${context.parsed.y.toFixed(2)}`;
+          },
+        },
       },
     },
     scales: {
@@ -98,11 +235,120 @@ const StockCharts = ({ graphData }) => {
         grid: {
           display: false,
         },
+        ticks: {
+          maxRotation: 45,
+          minRotation: 45,
+          autoSkip: true,
+          maxTicksLimit: 20,
+          font: {
+            size: 10,
+          },
+        },
       },
       y: {
         grid: {
           color: 'rgba(0, 0, 0, 0.05)',
         },
+        ticks: {
+          callback: function(value) {
+            return '$' + value.toFixed(2);
+          },
+        },
+      },
+    },
+  };
+  
+  const volumeChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: {
+      duration: 1000,
+    },
+    interaction: {
+      mode: 'index',
+      intersect: false,
+    },
+    plugins: {
+      legend: {
+        position: 'top',
+        labels: {
+          boxWidth: 16,
+          usePointStyle: true,
+          pointStyle: 'rectRounded',
+          font: {
+            size: 12,
+          },
+        },
+      },
+      tooltip: {
+        mode: 'index',
+        intersect: false,
+        backgroundColor: 'rgba(17, 24, 39, 0.9)',
+        titleFont: {
+          size: 13,
+        },
+        bodyFont: {
+          size: 12,
+        },
+        padding: 10,
+        cornerRadius: 4,
+        displayColors: false,
+        callbacks: {
+          label: function(context) {
+            return `Volume: ${formatLargeNumber(context.parsed.y)}`;
+          },
+        },
+      },
+      // Add annotation plugin for marking average volume
+      annotation: {
+        annotations: {
+          line1: {
+            type: 'line',
+            yMin: 0,
+            yMax: 0, // Will be dynamically set
+            borderColor: 'rgba(107, 114, 128, 0.5)',
+            borderWidth: 1,
+            borderDash: [6, 4],
+            label: {
+              content: 'Avg Vol',
+              display: true,
+              position: 'start',
+              backgroundColor: 'rgba(107, 114, 128, 0.7)',
+              font: {
+                size: 10
+              },
+            }
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        grid: {
+          display: false,
+        },
+        ticks: {
+          maxRotation: 45,
+          minRotation: 45,
+          autoSkip: true,
+          maxTicksLimit: 20,
+          font: {
+            size: 10,
+          },
+        },
+      },
+      y: {
+        type: 'logarithmic', // Use logarithmic scale for better spike visibility
+        grid: {
+          color: 'rgba(0, 0, 0, 0.05)',
+        },
+        ticks: {
+          callback: function(value) {
+            return formatLargeNumber(value);
+          },
+        },
+        // Ensure we start near zero but not at zero (which breaks log scale)
+        min: 10,
       },
     },
   };
@@ -127,23 +373,101 @@ const StockCharts = ({ graphData }) => {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-      <h3 className="text-xl font-semibold text-gray-800 mb-4">Price Chart</h3>
-      
-      <div className="mb-8">
-        <h4 className="text-lg font-medium text-gray-700 mb-2">Price Chart</h4>
-        <div className="chart-container">
-          {priceChartData ? (
-            <Line data={priceChartData} options={chartOptions} />
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-gray-400">Loading chart data...</p>
-            </div>
-          )}
+    <div className="bg-white rounded-lg shadow-lg border border-gray-100 p-6 mb-8">
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-xl font-semibold text-gray-800 flex items-center">
+          <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+          </svg>
+          Market Data Dashboard
+        </h3>
+        
+        {/* Date Filter Buttons */}
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setSelectedDate('all')}
+            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${selectedDate === 'all' 
+              ? 'bg-green-600 text-white' 
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+          >
+            5d
+          </button>
+          
+          {dateOptions.map(date => (
+            <button
+              key={date.value}
+              onClick={() => setSelectedDate(date.value)}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${selectedDate === date.value 
+                ? 'bg-blue-600 text-white' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+            >
+              {date.label}
+            </button>
+          ))}
         </div>
       </div>
       
-
+      <div className="grid grid-cols-1 gap-6">
+        {/* Price Chart */}
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-lg font-medium text-gray-700">Stock Price</h4>
+            <div className="text-xs text-gray-500">
+              {selectedDate === 'all' 
+                ? '5-day minute-by-minute data' 
+                : `${format(new Date(selectedDate), 'MMM dd, yyyy')} data`}
+            </div>
+          </div>
+          <div className="chart-container h-64">
+            {priceChartData ? (
+              <Line data={priceChartData} options={priceChartOptions} height={250} />
+            ) : (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-gray-400 flex flex-col items-center">
+                  <svg className="animate-spin h-8 w-8 text-blue-500 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <p>Loading chart data...</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Volume Chart */}
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-lg font-medium text-gray-700">Trading Volume</h4>
+            <div className="flex items-center">
+              <span className="inline-flex items-center px-2 py-1 mr-2 text-xs font-medium rounded-full bg-indigo-100 text-indigo-800">
+                <span className="w-2 h-2 mr-1 bg-indigo-700 rounded-full"></span>
+                Volume Spike
+              </span>
+              <div className="text-xs text-gray-500">
+                {selectedDate === 'all' 
+                  ? '5-day minute-by-minute data' 
+                  : `${format(new Date(selectedDate), 'MMM dd, yyyy')} data`}
+              </div>
+            </div>
+          </div>
+          <div className="chart-container h-48">
+            {volumeChartData ? (
+              <Bar data={volumeChartData} options={volumeChartOptions} height={200} />
+            ) : (
+              <div className="flex items-center justify-center h-48">
+                <div className="text-gray-400 flex flex-col items-center">
+                  <svg className="animate-spin h-8 w-8 text-blue-500 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <p>Loading chart data...</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

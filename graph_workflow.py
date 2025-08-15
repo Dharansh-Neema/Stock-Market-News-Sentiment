@@ -1,10 +1,8 @@
-from langgraph.graph import StateGraph,START,END
+from langgraph.graph import StateGraph
 from util_def import search_keyword,latest_news,get_ticker,analyze_stock_data
 from pydantic_class import AgentState 
 from logger import setup_logger
-from test_output import news_data,graph_data
 from finnhub.exceptions import FinnhubAPIException
-from IPython.display import Image,display
 logger = setup_logger(name="graph_workflow",log_file="logs/graph_workflow.log")
 def search(agentState:AgentState):
     """This will search the stock and return symbol of it."""
@@ -37,11 +35,12 @@ def get_latest_news(agentState:AgentState):
     try:
         news_data = latest_news(agentState.symbol)
         result = []
-        top_count = min(20, len(news_data.headline))
+        top_count = min(30, len(news_data.headline))
         for i in range(top_count):
             result.append({
                 "headline":news_data.headline[i],
-                "summary":news_data.summary[i]
+                "summary":news_data.summary[i],
+                "link":news_data.links[i]
             })
         # print(result)
         logger.debug("Successfully retrieved and structured the top %d news items for symbol: %s", top_count, agentState.symbol)
