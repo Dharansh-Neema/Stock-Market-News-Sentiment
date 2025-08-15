@@ -1,0 +1,12 @@
+yfinance
+langchain
+langgraph
+langchain-google-genai
+langchain-openai
+langchain-community
+finnhub-python
+IPython
+fastapi
+uvicorn
+streamlit
+plotly
