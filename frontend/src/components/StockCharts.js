@@ -374,7 +374,7 @@ const StockCharts = ({ graphData }) => {
 
   return (
     <div className="bg-white rounded-lg shadow-lg border border-gray-100 p-6 mb-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between mb-6">
         <h3 className="text-xl font-semibold text-gray-800 flex items-center">
           <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
@@ -383,7 +383,7 @@ const StockCharts = ({ graphData }) => {
         </h3>
         
         {/* Date Filter Buttons */}
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center space-x-2 mt-2 md:mt-0">
           <button
             onClick={() => setSelectedDate('all')}
             className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${selectedDate === 'all' 
@@ -407,7 +407,7 @@ const StockCharts = ({ graphData }) => {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Price Chart */}
         <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
           <div className="flex items-center justify-between mb-4">
@@ -418,9 +418,9 @@ const StockCharts = ({ graphData }) => {
                 : `${format(new Date(selectedDate), 'MMM dd, yyyy')} data`}
             </div>
           </div>
-          <div className="chart-container h-64">
+          <div className="chart-container h-80"> {/* Height adjusted for horizontal layout */}
             {priceChartData ? (
-              <Line data={priceChartData} options={priceChartOptions} height={250} />
+              <Line data={priceChartData} options={priceChartOptions} height={320} />
             ) : (
               <div className="flex items-center justify-center h-64">
                 <div className="text-gray-400 flex flex-col items-center">
@@ -451,9 +451,9 @@ const StockCharts = ({ graphData }) => {
               </div>
             </div>
           </div>
-          <div className="chart-container h-48">
+          <div className="chart-container h-80"> {/* Height matched to price chart for consistency */}
             {volumeChartData ? (
-              <Bar data={volumeChartData} options={volumeChartOptions} height={200} />
+              <Bar data={volumeChartData} options={volumeChartOptions} height={320} />
             ) : (
               <div className="flex items-center justify-center h-48">
                 <div className="text-gray-400 flex flex-col items-center">
