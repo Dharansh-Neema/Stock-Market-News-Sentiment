@@ -1,6 +1,8 @@
 import React from 'react';
+import { useTheme } from '../utils/ThemeContext';
 
 const TabNav = ({ activeTab, setActiveTab }) => {
+  const { darkMode } = useTheme();
   const tabs = [
     { id: 'overview', label: 'Overview', icon: (
       <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -20,7 +22,7 @@ const TabNav = ({ activeTab, setActiveTab }) => {
   ];
 
   return (
-    <div className="border-b border-gray-200 mb-6">
+    <div className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'} mb-6`}>
       <nav className="flex w-full overflow-x-auto" aria-label="Tabs">
         {tabs.map((tab) => (
           <button
@@ -29,8 +31,12 @@ const TabNav = ({ activeTab, setActiveTab }) => {
             className={`
               flex items-center justify-center px-6 py-4 text-base font-medium flex-1 transition-all duration-300 ease-in-out
               ${activeTab === tab.id
-                ? 'text-green-600 border-b-2 border-green-600 bg-green-50'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}
+                ? darkMode 
+                  ? 'text-indigo-400 border-b-2 border-indigo-400 bg-indigo-900/30 drop-shadow-[0_0_3px_rgba(129,140,248,0.5)]'
+                  : 'text-green-600 border-b-2 border-green-600 bg-green-50'
+                : darkMode
+                  ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}
             `}
             aria-current={activeTab === tab.id ? 'page' : undefined}
           >
