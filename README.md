@@ -14,6 +14,7 @@ Stock-Sense is an intelligent stock analysis platform that provides real-time ma
 - Modern React frontend with beautiful charts
 - RESTful API backend with FastAPI
 - Comprehensive technical analysis
+- Docker containerization for easy deployment
 
 ## Tech Stack
 
@@ -24,8 +25,11 @@ Stock-Sense is an intelligent stock analysis platform that provides real-time ma
 - **Backend**: FastAPI, Python
 - **Data Processing**: pandas, yfinance
 - **AI/ML**: LangChain, Langgraph, OpenAI and Gemini
+- **Deployment**: Docker, Docker Compose, Nginx
 
 ## Setup and Installation
+
+### Option 1: Standard Installation
 
 1. Clone the repository:
 ```bash
@@ -45,6 +49,29 @@ OPENAI_API_KEY=your_openai_api_key
 GOOGLE_API_KEY=your_google_api_key
 FINNHUB_API_KEY=your_finnhub_api_key
 ```
+
+### Option 2: Docker Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/Dharansh-Neema/Stock-Market-News-Sentiment
+cd Stock-Market-News-Sentiment
+```
+
+2. Set up environment variables:
+```bash
+# Copy the sample environment file
+cp .env.sample .env
+
+# Edit the .env file with your API keys
+```
+
+3. Build and run with Docker Compose:
+```bash
+docker-compose up -d
+```
+
+For more detailed Docker instructions, see [DOCKER_SETUP.md](./DOCKER_SETUP.md).
 
 ## Running the Application
 
@@ -105,6 +132,9 @@ Stock-Sense/
 ├── graph_workflow.py  # Main analysis workflow
 ├── pydantic_class.py  # Data models
 ├── requirements.txt   # Project dependencies
+├── Dockerfile         # Backend Docker configuration
+├── docker-compose.yml # Docker Compose configuration
+├── DOCKER_SETUP.md    # Docker setup documentation
 ├── frontend/          # React frontend
 │   ├── public/        # Static assets
 │   ├── src/           # React source code
@@ -112,6 +142,8 @@ Stock-Sense/
 │   │   ├── utils/     # Utility functions
 │   │   ├── App.js     # Main React component
 │   │   └── index.js   # React entry point
+│   ├── Dockerfile     # Frontend Docker configuration
+│   ├── nginx.conf     # Nginx configuration for Docker
 │   ├── package.json   # Frontend dependencies
 │   └── README.md      # Frontend documentation
 └── README.md         # Project documentation
